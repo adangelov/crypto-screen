@@ -11,47 +11,44 @@ const baseUrl = 'https://api.coingecko.com/api/v3';
 
 const columnSpan = { lg: 4, md: 5, sm: 4, xs: 4, xxs: 2 } as const;
 
+const DEFAULT_COINS: CoinSummary[] = [
+  {
+    id: 'bitcoin',
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png?1547033579'
+  },
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    symbol: 'ETH',
+    image: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880'
+  }
+];
+
+const createEmptyLayouts = (): Layouts => ({ lg: [], md: [], sm: [], xs: [], xxs: [] });
+
 const App = () => {
   const [coins, setCoins] = useState<CoinSummary[]>([]);
-  const [layouts, setLayouts] = useState<Layouts>(() => ({ lg: [], md: [], sm: [], xs: [], xxs: [] }));
+  const [layouts, setLayouts] = useState<Layouts>(() => createEmptyLayouts());
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const storedCoins = localStorage.getItem(COINS_KEY);
-      const storedLayouts = localStorage.getItem(LAYOUT_KEY);
-      if (storedCoins) {
-        setCoins(JSON.parse(storedCoins));
-      }
-      if (storedLayouts) {
-        setLayouts(JSON.parse(storedLayouts));
-      }
-    } catch (error) {
-      console.error('Failed to restore dashboard state', error);
-    } finally {
-      setIsBootstrapping(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isBootstrapping) {
-      localStorage.setItem(COINS_KEY, JSON.stringify(coins));
-    }
-  }, [coins, isBootstrapping]);
-
-  useEffect(() => {
-    if (!isBootstrapping) {
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify(layouts));
-    }
-  }, [layouts, isBootstrapping]);
 
   const generateNewLayouts = useCallback(
     (coinId: string, currentLayouts: Layouts, itemCount: number): Layouts => {
       const nextLayouts: Layouts = { ...currentLayouts };
       (Object.keys(columnSpan) as Array<keyof typeof columnSpan>).forEach((breakpoint) => {
         const span = columnSpan[breakpoint];
-        const cols = breakpoint === 'lg' ? 12 : breakpoint === 'md' ? 10 : breakpoint === 'sm' ? 8 : breakpoint === 'xs' ? 4 : 2;
+        const cols =
+          breakpoint === 'lg'
+            ? 12
+            : breakpoint === 'md'
+              ? 10
+              : breakpoint === 'sm'
+                ? 8
+                : breakpoint === 'xs'
+                  ? 4
+                  : 2;
         const layout: Layout[] = nextLayouts[breakpoint] ? [...nextLayouts[breakpoint]!] : [];
         layout.push({
           i: coinId,
@@ -68,6 +65,48 @@ const App = () => {
     },
     []
   );
+
+  useEffect(() => {
+    try {
+      const storedCoins = localStorage.getItem(COINS_KEY);
+      const storedLayouts = localStorage.getItem(LAYOUT_KEY);
+
+      let parsedCoins: CoinSummary[] | null = null;
+      if (storedCoins) {
+        const restoredCoins = JSON.parse(storedCoins) as CoinSummary[];
+        parsedCoins = restoredCoins;
+        setCoins(restoredCoins);
+      } else {
+        setCoins(DEFAULT_COINS);
+      }
+
+      if (storedLayouts) {
+        setLayouts(JSON.parse(storedLayouts));
+      } else {
+        const coinsToLayout = parsedCoins ?? DEFAULT_COINS;
+        const seededLayouts = coinsToLayout.reduce<Layouts>((acc, coin, index) => {
+          return generateNewLayouts(coin.id, acc, index);
+        }, createEmptyLayouts());
+        setLayouts(seededLayouts);
+      }
+    } catch (error) {
+      console.error('Failed to restore dashboard state', error);
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, [generateNewLayouts]);
+
+  useEffect(() => {
+    if (!isBootstrapping) {
+      localStorage.setItem(COINS_KEY, JSON.stringify(coins));
+    }
+  }, [coins, isBootstrapping]);
+
+  useEffect(() => {
+    if (!isBootstrapping) {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(layouts));
+    }
+  }, [layouts, isBootstrapping]);
 
   const handleSelectCoin = useCallback(
     async (result: CoinSearchResult) => {
@@ -155,7 +194,7 @@ const App = () => {
       )}
 
       <footer className="mt-auto text-center text-xs text-slate-500">
-        Version: 0.1.1
+        Version: 0.1.2
       </footer>
     </div>
   );
