@@ -14,7 +14,10 @@ const CandlestickChart = ({ data, color = '#00F28F' }: CandlestickChartProps) =>
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = createChart(containerRef.current, {
+    const container = containerRef.current;
+    const { width, height } = container.getBoundingClientRect();
+
+    const chart = createChart(container, {
       layout: {
         background: { color: 'transparent' },
         textColor: '#E2E8F0'
@@ -53,7 +56,11 @@ const CandlestickChart = ({ data, color = '#00F28F' }: CandlestickChartProps) =>
       }
     });
 
-    observer.observe(containerRef.current);
+    if (width > 0 && height > 0) {
+      chart.applyOptions({ width, height });
+    }
+
+    observer.observe(container);
 
     return () => {
       observer.disconnect();
@@ -64,8 +71,9 @@ const CandlestickChart = ({ data, color = '#00F28F' }: CandlestickChartProps) =>
   }, [color]);
 
   useEffect(() => {
-    if (seriesRef.current) {
+    if (seriesRef.current && chartRef.current) {
       seriesRef.current.setData(data);
+      chartRef.current.timeScale().fitContent();
     }
   }, [data]);
 
