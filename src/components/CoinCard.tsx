@@ -3,21 +3,24 @@ import type { CandlestickData } from 'lightweight-charts';
 import CandlestickChart from './CandlestickChart';
 import Skeleton from './Skeleton';
 
+type PeriodValue = '4h' | '24h' | '3d' | '1m' | '3m' | '1y' | '2y' | 'max';
+
 type PeriodOption = {
   label: string;
-  value: '4h' | '24h' | '3d' | '1m' | '3m' | '1y' | '2y' | 'max';
-  daysParam: number | 'max';
+  value: PeriodValue;
+  daysParam: 1 | 7 | 14 | 30 | 90 | 180 | 365 | 'max';
   trimToHours?: number;
+  trimToDays?: number;
 };
 
 const periods: readonly PeriodOption[] = [
   { label: '4H', value: '4h', daysParam: 1, trimToHours: 4 },
-  { label: '24H', value: '24h', daysParam: 1 },
-  { label: '3D', value: '3d', daysParam: 3 },
+  { label: '24H', value: '24h', daysParam: 1, trimToHours: 24 },
+  { label: '3D', value: '3d', daysParam: 7, trimToDays: 3 },
   { label: '1M', value: '1m', daysParam: 30 },
   { label: '3M', value: '3m', daysParam: 90 },
   { label: '1Y', value: '1y', daysParam: 365 },
-  { label: '2Y', value: '2y', daysParam: 730 },
+  { label: '2Y', value: '2y', daysParam: 'max', trimToDays: 365 * 2 },
   { label: 'MAX', value: 'max', daysParam: 'max' }
 ] as const;
 
@@ -60,10 +63,15 @@ const CoinCard = ({ coin, onRemove }: CoinCardProps) => {
           low,
           close
         }));
-        if (periodOption.trimToHours && formatted.length > 0) {
-          const latest = formatted[formatted.length - 1].time;
-          if (typeof latest === 'number') {
+        const latest = formatted.length > 0 ? formatted[formatted.length - 1].time : null;
+        if (typeof latest === 'number') {
+          if (periodOption.trimToHours) {
             const cutoff = latest - periodOption.trimToHours * 60 * 60;
+            formatted = formatted.filter(({ time }) => (typeof time === 'number' ? time >= cutoff : true));
+          }
+
+          if (periodOption.trimToDays) {
+            const cutoff = latest - periodOption.trimToDays * 24 * 60 * 60;
             formatted = formatted.filter(({ time }) => (typeof time === 'number' ? time >= cutoff : true));
           }
         }
