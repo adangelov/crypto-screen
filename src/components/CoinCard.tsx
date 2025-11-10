@@ -3,12 +3,22 @@ import type { CandlestickData } from 'lightweight-charts';
 import CandlestickChart from './CandlestickChart';
 import Skeleton from './Skeleton';
 
-const periods = [
-  { label: '1D', value: 1 },
-  { label: '1W', value: 7 },
-  { label: '1M', value: 30 },
-  { label: '3M', value: 90 },
-  { label: '1Y', value: 365 }
+type PeriodOption = {
+  label: string;
+  value: '4h' | '24h' | '3d' | '1m' | '3m' | '1y' | '2y' | 'max';
+  daysParam: number | 'max';
+  trimToHours?: number;
+};
+
+const periods: readonly PeriodOption[] = [
+  { label: '4H', value: '4h', daysParam: 1, trimToHours: 4 },
+  { label: '24H', value: '24h', daysParam: 1 },
+  { label: '3D', value: '3d', daysParam: 3 },
+  { label: '1M', value: '1m', daysParam: 30 },
+  { label: '3M', value: '3m', daysParam: 90 },
+  { label: '1Y', value: '1y', daysParam: 365 },
+  { label: '2Y', value: '2y', daysParam: 730 },
+  { label: 'MAX', value: 'max', daysParam: 'max' }
 ] as const;
 
 export interface CoinSummary {
@@ -26,28 +36,37 @@ interface CoinCardProps {
 const baseUrl = 'https://api.coingecko.com/api/v3';
 
 const CoinCard = ({ coin, onRemove }: CoinCardProps) => {
-  const [period, setPeriod] = useState<number>(periods[2].value);
+  const [period, setPeriod] = useState<PeriodOption['value']>(periods[3].value);
   const [data, setData] = useState<CandlestickData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOhlc = useCallback(
-    async (duration: number) => {
+    async (periodOption: PeriodOption) => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`${baseUrl}/coins/${coin.id}/ohlc?vs_currency=usd&days=${duration}`);
+        const response = await fetch(
+          `${baseUrl}/coins/${coin.id}/ohlc?vs_currency=usd&days=${periodOption.daysParam}`
+        );
         if (!response.ok) {
           throw new Error('Unable to fetch OHLC data');
         }
         const raw = (await response.json()) as [number, number, number, number, number][];
-        const formatted: CandlestickData[] = raw.map(([timestamp, open, high, low, close]) => ({
+        let formatted: CandlestickData[] = raw.map(([timestamp, open, high, low, close]) => ({
           time: (timestamp / 1000) as CandlestickData['time'],
           open,
           high,
           low,
           close
         }));
+        if (periodOption.trimToHours && formatted.length > 0) {
+          const latest = formatted[formatted.length - 1].time;
+          if (typeof latest === 'number') {
+            const cutoff = latest - periodOption.trimToHours * 60 * 60;
+            formatted = formatted.filter(({ time }) => (typeof time === 'number' ? time >= cutoff : true));
+          }
+        }
         setData(formatted);
       } catch (err) {
         setError((err as Error).message);
@@ -60,7 +79,8 @@ const CoinCard = ({ coin, onRemove }: CoinCardProps) => {
   );
 
   useEffect(() => {
-    fetchOhlc(period);
+    const selectedPeriod = periods.find(({ value }) => value === period) ?? periods[0];
+    fetchOhlc(selectedPeriod);
   }, [fetchOhlc, period]);
 
   const periodButtons = useMemo(

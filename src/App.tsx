@@ -155,7 +155,7 @@ const App = () => {
       )}
 
       <footer className="mt-auto text-center text-xs text-slate-500">
-        Version: 0.1.0
+        Version: 0.1.1
       </footer>
     </div>
   );
